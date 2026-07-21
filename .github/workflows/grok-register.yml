@@ -30,25 +30,28 @@ jobs:
         if (Test-Path "C:\grok-register\grok_core.pyd") { Write-Host "grok_core.pyd found" }
       shell: pwsh
 
-    - name: Install Python 3.14
+    - name: Setup Python 3.14
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.14'
+
+    - name: Verify Python
       run: |
-        Write-Host "=== STEP 2: INSTALL PYTHON 3.14 ==="
-        Invoke-WebRequest -Uri "https://www.python.org/ftp/python/3.14.3/python-3.14.3-amd64.exe" -OutFile "$env:TEMP\python-installer.exe"
-        Start-Process "$env:TEMP\python-installer.exe" -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1 Include_test=0 TargetDir=C:\Python314" -Wait -NoNewWindow
-        & C:\Python314\python.exe --version
-      shell: pwsh
+        python --version
+        pip --version
+      shell: bash
 
     - name: Install Dependencies
       run: |
-        Write-Host "=== STEP 3: INSTALL DEPENDENCIES ==="
-        & C:\Python314\python.exe -m pip install --upgrade pip 2>&1
-        & C:\Python314\python.exe -m pip install -r C:\grok-register\requirements.txt 2>&1
+        python -m pip install --upgrade pip
+        python -m pip install -r C:\grok-register\requirements.txt
+        python -m pip install psutil
         Write-Host "Dependencies installed"
-      shell: pwsh
+      shell: bash
 
     - name: Install Google Chrome
       run: |
-        Write-Host "=== STEP 4: INSTALL CHROME ==="
+        Write-Host "=== INSTALL CHROME ==="
         $url = "https://dl.google.com/chrome/install/latest/chrome_installer.exe"
         Invoke-WebRequest -Uri $url -OutFile "$env:TEMP\chrome_installer.exe"
         Start-Process "$env:TEMP\chrome_installer.exe" -ArgumentList "/silent /install" -Wait
@@ -57,7 +60,7 @@ jobs:
 
     - name: Setup Config
       run: |
-        Write-Host "=== STEP 5: SETUP CONFIG ==="
+        Write-Host "=== SETUP CONFIG ==="
         $configPath = "C:\grok-register\config.json"
         Copy-Item "C:\grok-register\config.example.json" $configPath -Force
         $config = Get-Content $configPath -Raw | ConvertFrom-Json
@@ -73,13 +76,13 @@ jobs:
 
     - name: Run Grok Register
       run: |
-        Write-Host "=== STEP 6: RUN GROK REGISTER ==="
+        Write-Host "=== RUN GROK REGISTER ==="
         Write-Host "Start: $(Get-Date)"
-        Set-Location C:\grok-register
-        & C:\Python314\python.exe grok_register_ttk.py cli
+        cd C:\grok-register
+        python grok_register_ttk.py cli
         Write-Host "=== COMPLETE ==="
         Write-Host "End: $(Get-Date)"
-      shell: pwsh
+      shell: bash
 
     - name: Collect Results
       run: |
