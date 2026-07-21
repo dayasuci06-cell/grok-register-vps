@@ -30,13 +30,31 @@ jobs:
         if (Test-Path "C:/grok-register/grok_core.pyd") { Write-Host "grok_core.pyd found" }
       shell: pwsh
 
-    - name: Setup Python 3.14
+    - name: Install VC++ Redistributable
+      run: |
+        Write-Host "=== INSTALL VC++ REDISTRIBUTABLE ==="
+        $url = "https://aka.ms/vs/17/release/vc_redist.x64.exe"
+        Invoke-WebRequest -Uri $url -OutFile "$env:TEMP\vc_redist.exe"
+        Start-Process "$env:TEMP\vc_redist.exe" -ArgumentList "/install /quiet /norestart" -Wait
+        Write-Host "VC++ Redistributable installed"
+        Write-Host "Checking VC++ DLLs..."
+        $dlls = @("vcruntime140.dll", "msvcp140.dll", "vcruntime140_1.dll")
+        foreach ($dll in $dlls) {
+            $found = Get-ChildItem "C:\Windows\System32\$dll" -ErrorAction SilentlyContinue
+            if ($found) { Write-Host "  FOUND: $dll" } else { Write-Host "  MISSING: $dll" }
+        }
+      shell: pwsh
+
+    - name: Setup Python 3.14.3 (Exact Version)
       uses: actions/setup-python@v5
       with:
-        python-version: '3.14'
+        python-version: '3.14.3'
 
-    - name: Verify Python
-      run: python --version
+    - name: Verify Python and VC++ Runtime
+      run: |
+        python --version
+        python -c "import ctypes, os; print('ctypes OK')"
+        python -c "import sys; print(f'python314.dll: {sys.prefix}'); print(f'Path: {sys.path}')"
       shell: bash
 
     - name: Install Dependencies
@@ -75,8 +93,24 @@ jobs:
     - name: Test Import grok_core
       continue-on-error: true
       run: |
-        python -c "import sys; print(f'Python {sys.version}'); import grok_core; print('grok_core OK')"
-      shell: bash
+        python -c "
+        import sys, ctypes, os
+        print(f'Python: {sys.version}')
+        print(f'Executable: {sys.executable}')
+        # Check VC++ runtime
+        try:
+            ctypes.CDLL('vcruntime140.dll')
+            print('vcruntime140.dll: OK')
+        except:
+            print('vcruntime140.dll: MISSING')
+        # Try import
+        try:
+            import grok_core
+            print('grok_core: IMPORT OK')
+        except Exception as e:
+            print(f'grok_core: ERROR {type(e).__name__}: {e}')
+        "
+      shell: python
       working-directory: C:/grok-register
 
     - name: Run Grok Register
